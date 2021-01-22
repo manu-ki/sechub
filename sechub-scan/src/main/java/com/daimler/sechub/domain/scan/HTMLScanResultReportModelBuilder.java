@@ -119,6 +119,7 @@ public class HTMLScanResultReportModelBuilder {
 	}
 
 	public String getEmbeddedCSS() {
+	    System.out.println("nothing special");
 		if (embeddedCSS!=null) {
 			return embeddedCSS;
 		}
