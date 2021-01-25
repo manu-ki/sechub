@@ -25,6 +25,7 @@ import com.daimler.sechub.domain.scan.report.ScanReportResult;
 import com.daimler.sechub.domain.scan.report.ScanReportTrafficLightCalculator;
 import com.daimler.sechub.sharedkernel.MustBeDocumented;
 
+
 @Component
 public class HTMLScanResultReportModelBuilder {
 
@@ -34,7 +35,7 @@ public class HTMLScanResultReportModelBuilder {
     private static final Logger LOG = LoggerFactory.getLogger(HTMLScanResultReportModelBuilder.class);
 
     @Value("${sechub.development.webdesignmode.enabled:false}")
-    @MustBeDocumented(scope = "development", value = "Developers can turn on this mode to have reports creating with external css. Normally the html model builder will create embedded css content")
+    @MustBeDocumented(scope="development",value="Developers can turn on this mode to have reports creating with external css. Normally the html model builder will create embedded css content")
     boolean webDesignMode;
 
     @Value("classpath:templates/report/html/scanresult.css")
@@ -44,6 +45,7 @@ public class HTMLScanResultReportModelBuilder {
 
     @Autowired
     ScanReportTrafficLightCalculator trafficLightCalculator;
+
 
     public Map<String, Object> build(ScanReportResult scanResult) {
         String trafficLight = scanResult.getTrafficLight();
@@ -67,8 +69,8 @@ public class HTMLScanResultReportModelBuilder {
         HtmlCodeScanDescriptionSupport codeScanSupport = new HtmlCodeScanDescriptionSupport();
         SecHubResult result = scanResult.getResult();
 
-        Map<Integer, List<HTMLScanResultCodeScanEntry>> codeScanEntries = new HashMap<>();
-        for (SecHubFinding finding : result.getFindings()) {
+        Map<Integer,List<HTMLScanResultCodeScanEntry>> codeScanEntries = new HashMap<>();
+        for (SecHubFinding finding: result.getFindings()) {
             codeScanEntries.put(finding.getId(), codeScanSupport.buildEntries(finding));
         }
 
@@ -88,25 +90,26 @@ public class HTMLScanResultReportModelBuilder {
         model.put("codeScanEntries", codeScanEntries);
         model.put("codeScanSupport", codeScanSupport);
 
+
         if (webDesignMode) {
             File file;
             try {
-                if (cssResource == null) {
-                    LOG.error("CSS resource not set:{}", cssResource);
-                } else {
+                if (cssResource==null) {
+                    LOG.error("CSS resource not set:{}",cssResource);
+                }else {
                     file = cssResource.getFile();
                     String absolutePathToCSSFile = file.getAbsolutePath();
-                    LOG.info("Web design mode activate, using not embedded css but ref to:{}", absolutePathToCSSFile);
+                    LOG.info("Web design mode activate, using not embedded css but ref to:{}",absolutePathToCSSFile);
                     model.put("includedCSSRef", absolutePathToCSSFile);
                 }
             } catch (Exception e) {
-                LOG.error("Was not able get file from resource:{}", cssResource, e);
+                LOG.error("Was not able get file from resource:{}",cssResource,e);
             }
         }
         UUID jobUUID = scanResult.getJobUUID();
-        if (jobUUID != null) {
+        if (jobUUID!=null) {
             model.put("jobuuid", jobUUID.toString());
-        } else {
+        }else {
             model.put("jobuuid", "none");
         }
         model.put("info", scanResult.getInfo());
@@ -116,27 +119,25 @@ public class HTMLScanResultReportModelBuilder {
     }
 
     public String getEmbeddedCSS() {
-        System.out.println("nothing special");
-        if (embeddedCSS != null) {
+        if (embeddedCSS!=null) {
             return embeddedCSS;
         }
         try {
             InputStream in = cssResource.getInputStream();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"))) {
-                String line = null;
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"))){
+                String line=null;
                 StringBuilder sb = new StringBuilder();
-                while ((line = br.readLine()) != null) {
+                while ((line=br.readLine())!=null) {
                     sb.append(line);
                     sb.append("\n");
                 }
-                embeddedCSS = sb.toString();
+                embeddedCSS=sb.toString();
             }
 
         } catch (IOException e) {
-            LOG.error("Was not able to load css resources", e);
-            embeddedCSS = "/* not able to load css from server */";
+            LOG.error("Was not able to load css resources",e);
+            embeddedCSS="/* not able to load css from server */";
         }
         return embeddedCSS;
     }
-
 }
