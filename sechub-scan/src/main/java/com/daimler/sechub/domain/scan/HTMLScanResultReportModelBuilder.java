@@ -27,6 +27,32 @@ import com.daimler.sechub.sharedkernel.MustBeDocumented;
 
 @Component
 public class HTMLScanResultReportModelBuilder {
+    
+    public String getEmbeddedCSS() {
+        
+        System.out.println("do you find something?");
+        
+        if (embeddedCSS!=null) {
+            return embeddedCSS;
+        }
+        try {
+            InputStream in = cssResource.getInputStream();
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"))){
+                String line=null;
+                StringBuilder sb = new StringBuilder();
+                while ((line=br.readLine())!=null) {
+                    sb.append(line);
+                    sb.append("\n");
+                }
+                embeddedCSS=sb.toString();
+            }
+
+        } catch (IOException e) {
+            LOG.error("Was not able to load css resources",e);
+            embeddedCSS="/* not able to load css from server */";
+        }
+        return embeddedCSS;
+    }
 
     static final String SHOW_LIGHT = "opacity: 1.0";
     static final String HIDE_LIGHT = "opacity: 0.25";
@@ -113,29 +139,5 @@ public class HTMLScanResultReportModelBuilder {
 
         return model;
 
-    }
-
-    public String getEmbeddedCSS() {
-
-        if (embeddedCSS != null) {
-            return embeddedCSS;
-        }
-        try {
-            InputStream in = cssResource.getInputStream();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"))) {
-                String line = null;
-                StringBuilder sb = new StringBuilder();
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
-                    sb.append("\n");
-                }
-                embeddedCSS = sb.toString();
-            }
-
-        } catch (IOException e) {
-            LOG.error("Was not able to load css resources", e);
-            embeddedCSS = "/* not able to load css from server */";
-        }
-        return embeddedCSS;
     }
 }
