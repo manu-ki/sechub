@@ -24,7 +24,9 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 
+import com.daimler.sechub.integrationtest.internal.DoNotChangeTestExecutionProfile;
 import com.daimler.sechub.integrationtest.internal.IntegrationTestContext;
+import com.daimler.sechub.integrationtest.internal.IntegrationTestDefaultProfiles;
 import com.daimler.sechub.integrationtest.internal.TestJSONHelper;
 import com.daimler.sechub.integrationtest.internal.TestRestHelper;
 import com.daimler.sechub.sharedkernel.mapping.MappingData;
@@ -45,9 +47,8 @@ public class TestAPI {
 
     private static final Logger LOG = LoggerFactory.getLogger(TestAPI.class);
 
-    
     public static File PDS_WORKSPACE_FOLDER = new File("./build/test-results/pds-runtime/workspace");
-    
+
     /**
      * Do <b>NOT</b> change this user in tests! This is only for checks. Only
      * special scenario users are automatically reverted
@@ -65,39 +66,44 @@ public class TestAPI {
      * special scenario users are automatically reverted
      */
     public static final TestUser ONLY_USER = new FixedTestUser("int-test_onlyuser", "int-test_onlyuser-pwd", "onlyuser@" + ExampleConstants.URI_TARGET_SERVER);
-    
+
     /**
      * Technical user used for communication with integration test PDS
      */
-    public static final TestUser PDS_TECH_USER = new FixedTestUser("pds-inttest-techuser", "pds-inttest-apitoken", "pds_techuser@" + ExampleConstants.URI_TARGET_SERVER);
+    public static final TestUser PDS_TECH_USER = new FixedTestUser("pds-inttest-techuser", "pds-inttest-apitoken",
+            "pds_techuser@" + ExampleConstants.URI_TARGET_SERVER);
 
     /**
      * Admin account used for communication with integration test PDS
      */
     public static final TestUser PDS_ADMIN = new FixedTestUser("pds-inttest-admin", "pds-inttest-apitoken", "pds_admin@" + ExampleConstants.URI_TARGET_SERVER);
 
-    
     private static final long MAXIMUM_WAIT_FOR_RUNNING_JOBS = 300 * 1000;// 300 seconds = 5 minutes max;
 
     public static final AsUser as(TestUser user) {
         return new AsUser(user);
     }
-    
+
     public static final AsPDSUser asPDSUser(TestUser user) {
         return new AsPDSUser(user);
     }
 
+    public static AssertSecHubReport assertSecHubReport(String json) {
+        return  AssertSecHubReport.assertSecHubReport(json);
+    }
+    
     public static AssertPDSStatus assertPDSJobStatus(String json) {
         return new AssertPDSStatus(json);
     }
+
     public static AssertPDSCreateJobResult assertPDSJobCreateResult(String json) {
         return new AssertPDSCreateJobResult(json);
     }
-    
+
     public static AssertPDSWorkspace assertPDSWorkspace() {
         return new AssertPDSWorkspace();
     }
-    
+
     public static AssertUser assertUser(TestUser user) {
         return new AssertUser(user);
     }
@@ -113,9 +119,10 @@ public class TestAPI {
     public static AssertJSON assertJSON(String json) {
         return AssertJSON.assertJson(json);
     }
-    
+
     /**
      * Creates an assert object to inspect meta data
+     * 
      * @return
      */
     public static AssertInspections assertInspections() {
@@ -124,14 +131,23 @@ public class TestAPI {
 
     public static void logInfoOnServer(String text) {
         String url = getURLBuilder().buildIntegrationTestLogInfoUrl();
-        getContext().getRestHelper(ANONYMOUS).postPlainText(url,text);
+        getContext().getRestHelper(ANONYMOUS).postPlainText(url, text);
     }
-    
+
     public static void logInfoOnPDS(String text) {
         String url = getPDSURLBuilder().buildIntegrationTestLogInfoUrl();
-        getContext().getPDSRestHelper(ANONYMOUS).postPlainText(url,text);
+        getContext().getPDSRestHelper(ANONYMOUS).postPlainText(url, text);
     }
-    
+
+    /**
+     * Waits for sechub job being done - after 5 seconds time out is reached
+     * 
+     * @param project
+     * @param jobUUID
+     */
+    public static void waitForJobDone(TestProject project, UUID jobUUID) {
+        waitForJobDone(project, jobUUID,5);
+    }
     /**
      * Waits for sechub job being done - after 5 seconds time out is reached
      * 
@@ -139,10 +155,10 @@ public class TestAPI {
      * @param jobUUID
      */
     @SuppressWarnings("unchecked")
-    public static void waitForJobDone(TestProject project, UUID jobUUID) {
+    public static void waitForJobDone(TestProject project, UUID jobUUID, int timeOutInSeconds) {
         LOG.debug("wait for job done project:{}, job:{}", project.getProjectId(), jobUUID);
 
-        TestAPI.executeUntilSuccessOrTimeout(new AbstractTestExecutable(SUPER_ADMIN, 5, HttpClientErrorException.class) {
+        TestAPI.executeUntilSuccessOrTimeout(new AbstractTestExecutable(SUPER_ADMIN, timeOutInSeconds, HttpClientErrorException.class) {
             @Override
             public boolean runImpl() throws Exception {
                 String status = as(getUser()).getJobStatus(project.getProjectId(), jobUUID);
@@ -151,6 +167,7 @@ public class TestAPI {
             }
         });
     }
+
     /**
      * Waits for sechub job being running - after 5 seconds time out is reached
      * 
@@ -160,7 +177,7 @@ public class TestAPI {
     @SuppressWarnings("unchecked")
     public static void waitForJobRunning(TestProject project, UUID jobUUID) {
         LOG.debug("wait for job running project:{}, job:{}", project.getProjectId(), jobUUID);
-        
+
         TestAPI.executeUntilSuccessOrTimeout(new AbstractTestExecutable(SUPER_ADMIN, 5, HttpClientErrorException.class) {
             @Override
             public boolean runImpl() throws Exception {
@@ -698,36 +715,57 @@ public class TestAPI {
     private static TestURLBuilder getURLBuilder() {
         return getContext().getUrlBuilder();
     }
-    
+
     private static TestURLBuilder getPDSURLBuilder() {
         return getContext().getPDSUrlBuilder();
     }
-    
 
     public static void revertJobToStillRunning(UUID sechubJobUUID) {
-       String url = getURLBuilder().buildIntegrationTestRevertJobAsStillRunning(sechubJobUUID);
-       getSuperAdminRestHelper().put(url); 
-    }
-    
-    public static void revertJobToStillNotApproved(UUID sechubJobUUID) {
-        String url = getURLBuilder().buildIntegrationTestRevertJobAsStillNotApproved(sechubJobUUID);
-        getSuperAdminRestHelper().put(url); 
-    }
-    
-    public static void fakeProductResult(String projectId, UUID sechubJobUUID, String productId,String result) {
-        String url = getURLBuilder().buildIntegrationTestFakeProductResult(projectId, sechubJobUUID, productId);
-        getSuperAdminRestHelper().putPlainText(url,result); 
-    }
-    
-    public static long countJobResults(UUID sechubJobUUID) {
-        String url = getURLBuilder().buildIntegrationTestCountProductResults(sechubJobUUID);
-        return getSuperAdminRestHelper().getLongFromURL(url); 
-    }
-    
-    public static void destroyProductResults(UUID sechubJobUUID) {
-        String url = getURLBuilder().buildintegrationTestDeleteProductResults(sechubJobUUID);
-        getSuperAdminRestHelper().delete(url); 
+        String url = getURLBuilder().buildIntegrationTestRevertJobAsStillRunning(sechubJobUUID);
+        getSuperAdminRestHelper().put(url);
     }
 
+    public static void revertJobToStillNotApproved(UUID sechubJobUUID) {
+        String url = getURLBuilder().buildIntegrationTestRevertJobAsStillNotApproved(sechubJobUUID);
+        getSuperAdminRestHelper().put(url);
+    }
+
+    public static void fakeProductResult(String projectId, UUID sechubJobUUID, String productId, String result) {
+        String url = getURLBuilder().buildIntegrationTestFakeProductResult(projectId, sechubJobUUID, productId);
+        getSuperAdminRestHelper().putPlainText(url, result);
+    }
+
+    public static long countJobResults(UUID sechubJobUUID) {
+        String url = getURLBuilder().buildIntegrationTestCountProductResults(sechubJobUUID);
+        return getSuperAdminRestHelper().getLongFromURL(url);
+    }
+
+    public static void destroyProductResults(UUID sechubJobUUID) {
+        String url = getURLBuilder().buildintegrationTestDeleteProductResults(sechubJobUUID);
+        getSuperAdminRestHelper().delete(url);
+    }
+
+    public static boolean isExecutionProfileExisting(String profileId) {
+        String url = getURLBuilder().buildintegrationTestIsExecutionProfileExisting(profileId);
+        return getSuperAdminRestHelper().getBooleanFromURL(url);
+    }
+
+    public static void dropExecutionProfileIfExisting(String profileId) {
+        assertNoDefaultProfileId(profileId);
+        if (!isExecutionProfileExisting(profileId)) {
+            return;
+        }
+        String url = getURLBuilder().buildAdminDeletesProductExecutionProfile(profileId);
+        getSuperAdminRestHelper().delete(url);
+    }
+
+    public static void assertNoDefaultProfileId(String profileId) {
+        for (DoNotChangeTestExecutionProfile doNotChangeProfile : IntegrationTestDefaultProfiles.getAllDefaultProfiles()) {
+            if (doNotChangeProfile.id.equals(profileId)) {
+                throw new IllegalArgumentException("Profile " + profileId
+                        + " is a default profile and may not be changed! This would destroy test scenarios! Please define own profiles in your tests and change them!");
+            }
+        }
+    }
 
 }

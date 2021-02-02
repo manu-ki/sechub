@@ -7,6 +7,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.swing.AbstractAction;
+import javax.swing.ImageIcon;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -18,6 +19,15 @@ import javax.swing.SwingUtilities;
 import com.daimler.sechub.developertools.admin.ui.action.ActionSupport;
 import com.daimler.sechub.developertools.admin.ui.action.adapter.ShowAdapterDialogAction;
 import com.daimler.sechub.developertools.admin.ui.action.client.TriggerSecHubClientSynchronousScanAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.CreateExecutionProfileAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.CreateExecutorConfigAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.DeleteConfigurationAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.DeleteProfileAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.EditConfigurationAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.EditExecutionProfileAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.ListExecutionProfilesAction;
+import com.daimler.sechub.developertools.admin.ui.action.config.ListExecutorConfigurationsAction;
+import com.daimler.sechub.developertools.admin.ui.action.developerbatchops.DeveloperBatchCreateCheckmarxTestSetupAction;
 import com.daimler.sechub.developertools.admin.ui.action.integrationtestserver.FetchMockMailsAction;
 import com.daimler.sechub.developertools.admin.ui.action.integrationtestserver.testdata.CreateScenario2TestDataAction;
 import com.daimler.sechub.developertools.admin.ui.action.integrationtestserver.testdata.CreateScenario3TestDataAction;
@@ -37,12 +47,16 @@ import com.daimler.sechub.developertools.admin.ui.action.other.CheckVersionActio
 import com.daimler.sechub.developertools.admin.ui.action.pds.CheckPDSAliveAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.CheckPDSJobResultOrErrorAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.CheckPDSJobStatusAction;
+import com.daimler.sechub.developertools.admin.ui.action.pds.CreateNewPDSExecutionConfigurationAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.CreatePDSJobAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.FetchPDSConfigurationAction;
+import com.daimler.sechub.developertools.admin.ui.action.pds.FetchPDSJobParameterExampleAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.FetchPDSMonitoringStatusAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.MarkPDSJobReadyAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.ShowPDSConfigurationDialogAction;
 import com.daimler.sechub.developertools.admin.ui.action.pds.UploadPDSJobFileAction;
+import com.daimler.sechub.developertools.admin.ui.action.project.AssignProfileToAllProjectsAction;
+import com.daimler.sechub.developertools.admin.ui.action.project.AssignProfileToProjectsAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.AssignUserToProjectAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.AssignUserToProjectMassCSVImportAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.CreateOverviewCSVExportAction;
@@ -57,9 +71,12 @@ import com.daimler.sechub.developertools.admin.ui.action.project.SetProjectMockD
 import com.daimler.sechub.developertools.admin.ui.action.project.ShowProjectDetailAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.ShowProjectListAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.ShowProjectsScanLogsAction;
+import com.daimler.sechub.developertools.admin.ui.action.project.UnassignProfileFromAllProjectsAction;
+import com.daimler.sechub.developertools.admin.ui.action.project.UnassignProfileFromProjectsAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.UnassignUserFromProjectAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.UnassignUserFromProjectMassCSVImportAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.UnmarkProjectFalsePositiveAction;
+import com.daimler.sechub.developertools.admin.ui.action.project.UpdateProjectMetaDataAction;
 import com.daimler.sechub.developertools.admin.ui.action.project.UpdateProjectWhitelistAction;
 import com.daimler.sechub.developertools.admin.ui.action.scheduler.DisableSchedulerJobProcessingAction;
 import com.daimler.sechub.developertools.admin.ui.action.scheduler.EnableSchedulerJobProcessingAction;
@@ -82,6 +99,7 @@ import com.daimler.sechub.integrationtest.api.IntegrationTestMockMode;
 import com.daimler.sechub.sharedkernel.mapping.MappingIdentifier;
 
 public class CommandUI {
+    private static final ImageIcon EDIT_ROAD_BLACK_ICON = new ImageIcon(CommandUI.class.getResource("/icons/material-io/twotone_edit_road_black_18dp.png"));
     private JPanel panel;
     private JMenuBar menuBar;
     private TrafficLightComponent statusTrafficLight;
@@ -162,7 +180,7 @@ public class CommandUI {
         createIntegrationTestServerMenu();
         createMassOperationsMenu();
 
-        createAdapterMenu();
+        createConfigMenu();
         createPDSMenu();
         createSecHubClientMenu();
     }
@@ -174,11 +192,34 @@ public class CommandUI {
         menuBar.add(mainMenu);
     }
 
-    public void createAdapterMenu() {
-        JMenu menu = new JMenu("Adapter");
+    
+    public void createConfigMenu() {
+        JMenu menu = new JMenu("Config");
         menuBar.add(menu);
+        
+        JMenu executorMenu = new JMenu("Executors");
+        menu.add(executorMenu);
 
-        add(menu, new ShowAdapterDialogAction(context, "Checkmarx", MappingIdentifier.CHECKMARX_NEWPROJECT_PRESET_ID.getId(),
+        add(executorMenu, new CreateExecutorConfigAction(context));
+        add(executorMenu, new EditConfigurationAction(context));
+        add(executorMenu, new DeleteConfigurationAction(context));
+        add(executorMenu, new ListExecutorConfigurationsAction(context));
+
+        menu.addSeparator();
+        JMenu profileMenu = new JMenu("Profiles");
+       
+        profileMenu.setIcon(EDIT_ROAD_BLACK_ICON);
+        menu.add(profileMenu);
+        
+        add(profileMenu, new CreateExecutionProfileAction(context));
+        add(profileMenu, new EditExecutionProfileAction(context));
+        add(profileMenu, new DeleteProfileAction(context));
+        add(profileMenu, new ListExecutionProfilesAction(context));
+        menu.addSeparator();
+        
+        JMenu mappingsMenu = new JMenu("Mappings");
+        menu.add(mappingsMenu);
+        add(mappingsMenu, new ShowAdapterDialogAction(context, "Checkmarx", MappingIdentifier.CHECKMARX_NEWPROJECT_PRESET_ID.getId(),
                 MappingIdentifier.CHECKMARX_NEWPROJECT_TEAM_ID.getId()));
     }
 
@@ -189,8 +230,11 @@ public class CommandUI {
         add(menu, new ShowPDSConfigurationDialogAction(context));
         menu.addSeparator();
         add(menu, new FetchPDSConfigurationAction(context));
-        add(menu, new CheckPDSAliveAction(context));
+        add(menu, new FetchPDSJobParameterExampleAction(context));
         menu.addSeparator();
+        add(menu, new CreateNewPDSExecutionConfigurationAction(context));
+        menu.addSeparator();
+        add(menu, new CheckPDSAliveAction(context));
         add(menu, new FetchPDSMonitoringStatusAction(context));
         menu.addSeparator();
         add(menu, new CreatePDSJobAction(context));
@@ -237,19 +281,35 @@ public class CommandUI {
         add(menu, new DeleteProjectAction(context));
         add(menu, new ShowProjectDetailAction(context));
         add(menu, new ShowProjectsScanLogsAction(context));
+        
         menu.addSeparator();
         add(menu, new AssignUserToProjectAction(context));
         add(menu, new UnassignUserFromProjectAction(context));
+        
         menu.addSeparator();
         add(menu, new ShowProjectListAction(context));
+        
         menu.addSeparator();
         add(menu, new UpdateProjectWhitelistAction(context));
+        add(menu, new UpdateProjectMetaDataAction(context));
+        
+        menu.addSeparator();
+        JMenu profiles = new JMenu("Execution profiles");
+        profiles.setIcon(EDIT_ROAD_BLACK_ICON);
+        add(profiles, new AssignProfileToProjectsAction(context));
+        add(profiles, new UnassignProfileFromProjectsAction(context));
+        profiles.addSeparator();
+        add(profiles, new UnassignProfileFromAllProjectsAction(context));
+        add(profiles, new AssignProfileToAllProjectsAction(context));
+        menu.add(profiles);
+
         menu.addSeparator();
         JMenu falsePositives = new JMenu("False positives");
         add(falsePositives, new FetchProjectFalsePositiveConfigurationAction(context));
         add(falsePositives, new UnmarkProjectFalsePositiveAction(context));
         add(falsePositives, new MarkProjectFalsePositiveAction(context));
         menu.add(falsePositives);
+
 
         JMenu projectMockData = new JMenu("Mockdata");
         menu.add(projectMockData);
@@ -258,6 +318,7 @@ public class CommandUI {
         add(projectMockData, new GetProjectMockConfigurationAction(context));
 
     }
+    
 
     private void createStatusMenu() {
         JMenu menu = new JMenu("Status");
@@ -344,6 +405,12 @@ public class CommandUI {
         massOperationsMenu.addSeparator();
         add(massOperationsMenu, new DeleteProjectMassCSVImportAction(context));
         add(massOperationsMenu, new UnassignUserFromProjectMassCSVImportAction(context));
+        massOperationsMenu.addSeparator();
+        
+        JMenu developerBatchOperations = new JMenu("Developer batch ops");
+        massOperationsMenu.add(developerBatchOperations);
+        developerBatchOperations.add(new DeveloperBatchCreateCheckmarxTestSetupAction(context));
+        
     }
 
     private void add(JMenu menu, AbstractAction action) {

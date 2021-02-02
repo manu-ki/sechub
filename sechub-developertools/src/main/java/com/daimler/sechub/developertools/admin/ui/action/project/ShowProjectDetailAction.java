@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.daimler.sechub.developertools.admin.ui.UIContext;
 import com.daimler.sechub.developertools.admin.ui.action.AbstractUIAction;
 import com.daimler.sechub.developertools.admin.ui.cache.InputCacheIdentifier;
+import com.daimler.sechub.developertools.admin.ui.util.DataCollectorUtils;
 
 public class ShowProjectDetailAction extends AbstractUIAction {
 	private static final long serialVersionUID = 1L;
@@ -17,13 +18,18 @@ public class ShowProjectDetailAction extends AbstractUIAction {
 
 	@Override
 	public void execute(ActionEvent e) {
-		Optional<String> projectId = getUserInput("Please enter project ID/name",InputCacheIdentifier.PROJECT_ID);
-		if (! projectId.isPresent()) {
+		Optional<String> opt = getUserInput("Please enter project ID/name", InputCacheIdentifier.PROJECT_ID);
+		if (! opt.isPresent()) {
 			return;
 		}
-
-		String data = getContext().getAdministration().fetchProjectInfo(asSecHubId(projectId.get()));
+		String profileId = opt.get();
+		String data = getContext().getAdministration().fetchProjectInfo(asSecHubId(opt.get()));
 		outputAsBeautifiedJSONOnSuccess(data);
+		
+		data = DataCollectorUtils.fetchProfileInformationAboutProject(profileId,getContext());
+		outputAsTextOnSuccess(data);
 	}
+
+    
 
 }

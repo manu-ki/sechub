@@ -2,8 +2,12 @@
 // ====================================
 // SecHub operations Documentation
 // ====================================
-= image:sechub-logo.png[sechub] SecHub Operations
+
+include::documents/gen/server-version.adoc[]
+
 include::documents/config.adoc[]
+
+= image:sechub-logo.png[sechub] SecHub Operations
 
 == About
 include::documents/shared/about_sechub.adoc[]
@@ -28,7 +32,7 @@ include::documents/operations/01_sechub_server.adoc[]
 include::documents/operations/02_security_products.adoc[]
 
 <<<<
-// 3. Coding conventions
+// 3. Onboarding
 include::documents/operations/03_onboarding.adoc[]
 
 

@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import com.daimler.sechub.adapter.AdapterMetaData;
 import com.daimler.sechub.adapter.AdapterMetaDataCallback;
+import com.daimler.sechub.domain.scan.product.config.ProductExecutorConfig;
+import static com.daimler.sechub.sharedkernel.util.Assert.*;
 
 public class ProductExecutorContext {
     
@@ -20,18 +22,37 @@ public class ProductExecutorContext {
     List<ProductResult> results = new ArrayList<>();
     ProductExecutorCallback callback;
 
+    private ProductExecutorConfig executorConfig;
+
     /**
      * Creates executor context. Does also setup first former result as current result
+     * @param config 
      * @param formerResults
      * @param callback
      */
-    public ProductExecutorContext(List<ProductResult> formerResults, ProductExecutorCallback callback) {
-        this.callback=callback;
+    public ProductExecutorContext(ProductExecutorConfig executorConfig, List<ProductResult> formerResults, ProductExecutorCallback callback) {
+        notNull(executorConfig, "executorConfig may not be null");
+        notNull(formerResults, "formerResults may not be null");
+        notNull(callback, "callback may not be null");
+
+        this.executorConfig=executorConfig;
         this.formerResults=formerResults;
+        this.callback=callback;
         
         useFirstFormerResult();
     }
 
+    /**
+     * The returned configuration contains configuration setup which will be used by executors - 
+     * REMARK: some old executors will not use the configuration but insist on environment variables
+     * (e.g. CHECKMARX V1, NESSUS V1, NETSPARKER V1)
+     * 
+     * @return executor configuration, never <code>null</code>
+     */
+    public ProductExecutorConfig getExecutorConfig() {
+        return executorConfig;
+    }
+    
     public AdapterMetaDataCallback getCallBack() {
         return callback;
     }

@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,15 +26,21 @@ import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.daimler.sechub.commons.model.JSONConverter;
 import com.daimler.sechub.integrationtest.JSONTestSupport;
 import com.daimler.sechub.integrationtest.internal.IntegrationTestContext;
 import com.daimler.sechub.integrationtest.internal.IntegrationTestFileSupport;
 import com.daimler.sechub.integrationtest.internal.SecHubClientExecutor.ExecutionResult;
+import com.daimler.sechub.integrationtest.internal.SimpleTestStringList;
 import com.daimler.sechub.integrationtest.internal.TestJSONHelper;
 import com.daimler.sechub.integrationtest.internal.TestRestHelper;
 import com.daimler.sechub.sharedkernel.mapping.MappingData;
 import com.daimler.sechub.test.TestURLBuilder;
 import com.daimler.sechub.test.TestUtil;
+import com.daimler.sechub.test.executionprofile.TestExecutionProfile;
+import com.daimler.sechub.test.executionprofile.TestExecutionProfileList;
+import com.daimler.sechub.test.executorconfig.TestExecutorConfig;
+import com.daimler.sechub.test.executorconfig.TestExecutorConfigList;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -62,6 +70,12 @@ public class AsUser {
 		    		buildUploadSourceCodeUrl(project.getProjectId(),jobUUID),file,checkSum);
 		/* @formatter:on */
         return this;
+    }
+    
+    public List<String> listAllUserIds(){
+        String json = getRestHelper().getJSon(getUrlBuilder().buildAdminListsUsersUrl());
+        SimpleTestStringList list = JSONConverter.get().fromJSON(SimpleTestStringList.class,json);
+        return list;
     }
 
     /**
@@ -110,13 +124,13 @@ public class AsUser {
 
         String json = "{\"apiVersion\":\"1.0\",\r\n" + "		\"userId\":\"" + user.getUserId() + "\",\r\n" + "		\"emailAdress\":\"" + user.getEmail()
                 + "\"}";
-        getRestHelper().postJSon(getUrlBuilder().buildUserSignUpUrl(), json);
+        getRestHelper().postJson(getUrlBuilder().buildUserSignUpUrl(), json);
         return this;
 
     }
 
     public AsUser requestNewApiTokenFor(String emailAddress) {
-        getRestHelper().postJSon(getUrlBuilder().buildAnonymousRequestNewApiToken(emailAddress), "");
+        getRestHelper().postJson(getUrlBuilder().buildAnonymousRequestNewApiToken(emailAddress), "");
         return this;
     }
 
@@ -129,15 +143,15 @@ public class AsUser {
     }
 
     /**
-     * Tries to create the project
+     * User trigger create of project
      *
      * @param project
      * @throws RestClientException
      */
-    public void createProject(TestProject project, String ownerName) {
-        if (ownerName == null) {
+    public AsUser createProject(TestProject project, String ownerUserId) {
+        if (ownerUserId == null) {
             // we use always the user how creates the project as owner when not explicit set
-            ownerName = this.user.getUserId();
+            ownerUserId = this.user.getUserId();
         }
         /* @formatter:off */
 		StringBuilder json = new StringBuilder();
@@ -145,7 +159,7 @@ public class AsUser {
 		json.append("{\n" +
 				" \"apiVersion\":\"1.0\",\n" +
 				" \"name\":\""+project.getProjectId()+"\",\n" +
-				" \"owner\":\""+ownerName+"\",\n" +
+				" \"owner\":\""+ownerUserId+"\",\n" +
 				" \"description\":\""+project.getDescription()+"\"");
 		if (! project.getWhiteListUrls().isEmpty()) {
 			json.append(",\n \"whiteList\" : {\"uris\":[");
@@ -164,10 +178,146 @@ public class AsUser {
 		json.append("}\n");
 		jsonHelper.assertValidJson(json.toString());
 		/* @formatter:on */
-        getRestHelper().postJSon(getUrlBuilder().buildAdminCreatesProjectUrl(), json.toString());
-
+        getRestHelper().postJson(getUrlBuilder().buildAdminCreatesProjectUrl(), json.toString());
+        return this;
     }
 
+    
+    public AsUser createProductExecutionProfile(String profileId, TestExecutionProfile profile) {
+        String url = getUrlBuilder().buildAdminCreatesProductExecutionProfile(profileId);
+        String json = JSONConverter.get().toJSON(profile);
+        getRestHelper().postJson(url, json);
+        return this;
+    }
+    
+    public AsUser updateProductExecutionProfile(String profileId, TestExecutionProfile profile) {
+        String url = getUrlBuilder().buildAdminUpdatesProductExecutionProfile(profileId);
+        String json = JSONConverter.get().toJSON(profile);
+        getRestHelper().putJSon(url, json);
+        return this;
+    }
+    
+    public TestExecutionProfile fetchProductExecutionProfile(String profileId) {
+        String url = getUrlBuilder().buildAdminFetchesProductExecutionProfile(profileId);
+        String json = getRestHelper().getJSon(url);
+        return JSONConverter.get().fromJSON(TestExecutionProfile.class, json);
+    }
+    
+    
+    public TestExecutionProfileList fetchProductExecutionProfiles() {
+        String json = fetchProductExecutionProfilesAsJSON();
+        return JSONConverter.get().fromJSON(TestExecutionProfileList.class, json);
+    }
+
+    public String fetchProductExecutionProfilesAsJSON() {
+        String url = getUrlBuilder().buildAdminFetchesListOfProductExecutionProfiles();
+        String json = getRestHelper().getJSon(url);
+        return json;
+    }
+    public void  deleteProductExecutionProfile(String profileId) {
+        deleteProductExecutionProfile(profileId,true);
+    }
+    
+    void  deleteProductExecutionProfile(String profileId, boolean protectDefaultProfiles) {
+        if (protectDefaultProfiles) {
+            TestAPI.assertNoDefaultProfileId(profileId);
+        }
+        String url = getUrlBuilder().buildAdminDeletesProductExecutionProfile(profileId);
+        getRestHelper().delete(url);
+    }
+    
+    public UUID createProductExecutorConfig(TestExecutorConfig config) {
+        String url = getUrlBuilder().buildAdminCreatesProductExecutorConfig();
+        String json = JSONConverter.get().toJSON(config);
+        String result = getRestHelper().postJson(url, json);
+        return UUID.fromString(result);
+    }
+    
+    public AsUser addConfigurationToProfile(String profileId, UUID ... uuids) {
+        String url = getUrlBuilder().buildAdminFetchesProductExecutionProfile(profileId);
+        String json = getRestHelper().getJSon(url);
+        TestExecutionProfile profile = JSONConverter.get().fromJSON(TestExecutionProfile.class, json);
+        
+        for (UUID uuid: uuids) {
+            TestExecutorConfig config = new TestExecutorConfig(uuid);
+            // we do not need to load, because update service does only need uuids, other parts are ignored*/
+            profile.configurations.add(config);
+        }
+
+        return updateProductExecutionProfile(profileId, profile);
+    }
+    
+    public AsUser removeConfigurationFromProfile(String profileId, UUID ...uuids) {
+        String url = getUrlBuilder().buildAdminFetchesProductExecutionProfile(profileId);
+        String json = getRestHelper().getJSon(url);
+        TestExecutionProfile profile = JSONConverter.get().fromJSON(TestExecutionProfile.class, json);
+        
+        for (UUID uuid: uuids) {
+            TestExecutorConfig config = new TestExecutorConfig(uuid);
+            // we do not need to load, because update service does only need uuids, other parts are ignored*/
+            profile.configurations.remove(config);// equals implemented with uuid, so works..
+        }
+
+        return updateProductExecutionProfile(profileId, profile);
+    }
+    
+    
+    public AsUser removeProjectIdsFromProfile(String profileId, String ... projectIds) {
+        for (String projectId: projectIds) {
+            getRestHelper().delete(getUrlBuilder().buildAdminRemovesProjectFromExecutionProfile(profileId, projectId));
+        }
+        return this;
+    }
+    
+    public TestExecutorConfigList fetchProductExecutorConfigList() {
+        String json = fetchProductExecutorConfigListAsJSON();
+        return JSONConverter.get().fromJSON(TestExecutorConfigList.class, json);
+    }
+
+    public String fetchProductExecutorConfigListAsJSON() {
+        String url = getUrlBuilder().buildAdminFetchesListOfProductExecutionConfigurations();
+        String json = getRestHelper().getJSon(url);
+        return json;
+    }
+
+    public String fetchProductExecutorConfigAsJSON(UUID uuid) {
+        String url = getUrlBuilder().buildAdminFetchesProductExecutorConfig(uuid);
+        return getRestHelper().getJSon(url);
+    }
+
+    public TestExecutorConfig fetchProductExecutorConfig(UUID uuid) {
+        String json = fetchProductExecutorConfigAsJSON(uuid);
+        TestExecutorConfig result = JSONConverter.get().fromJSON(TestExecutorConfig.class, json);
+        return result;
+    }
+    
+    public void updateProdcutExecutorConfig(UUID uuid, TestExecutorConfig config) {
+        String url = getUrlBuilder().buildAdminUpdatesProductExecutorConfig(uuid);
+        String json = JSONConverter.get().toJSON(config);
+        getRestHelper().putJSon(url, json);
+    }
+    
+    public AsUser deleteProductExecutorConfig(UUID uuid) {
+        String url = getUrlBuilder().buildAdminDeletesProductExecutorConfig(uuid);
+        getRestHelper().delete(url);
+        return this;
+    }
+    
+    public AsUser addProjectsToProfile(String profileId, TestProject ... projects) {
+        List<String> projectIds = new ArrayList<>(); 
+        for (TestProject project: projects) {
+            projectIds.add(project.getProjectId());
+        }
+        return addProjectIdsToProfile(profileId, projectIds.toArray(new String[projectIds.size()]));
+    }
+    
+    public AsUser addProjectIdsToProfile(String profileId, String ...projectIds) {
+        for (String projectId: projectIds) {
+            getRestHelper().post(getUrlBuilder().buildAdminAddsProjectToExecutionProfile(profileId, projectId));
+        }
+        return this;
+    }
+    
     public String getServerURL() {
         return getUrlBuilder().buildServerURL();
     }
@@ -185,7 +335,7 @@ public class AsUser {
      */
     public AsUser assignUserToProject(TestUser targetUser, TestProject project) {
         LOG.debug("assigning user:{} to project:{}", user.getUserId(), project.getProjectId());
-        getRestHelper().postJSon(getUrlBuilder().buildAdminAssignsUserToProjectUrl(targetUser.getUserId(), project.getProjectId()), "");
+        getRestHelper().postJson(getUrlBuilder().buildAdminAssignsUserToProjectUrl(project.getProjectId(),targetUser.getUserId()), "");
         return this;
     }
 
@@ -198,7 +348,7 @@ public class AsUser {
      */
     public AsUser unassignUserFromProject(TestUser targetUser, TestProject project) {
         LOG.debug("unassigning user:{} from project:{}", user.getUserId(), project.getProjectId());
-        getRestHelper().delete(getUrlBuilder().buildAdminUnassignsUserFromProjectUrl(targetUser.getUserId(), project.getProjectId()));
+        getRestHelper().delete(getUrlBuilder().buildAdminUnassignsUserFromProjectUrl(project.getProjectId(), targetUser.getUserId()));
         return this;
     }
 
@@ -218,7 +368,7 @@ public class AsUser {
 
         json = json.replaceAll("__folder__", folder);
         String url = getUrlBuilder().buildAddJobUrl(projectId);
-        return getRestHelper().postJSon(url, json);
+        return getRestHelper().postJson(url, json);
     }
 
     private String createWebScanJob(TestProject project, IntegrationTestMockMode runMode) {
@@ -231,7 +381,7 @@ public class AsUser {
 
         json = json.replaceAll("__acceptedUri1__", acceptedURI1);
         String url = getUrlBuilder().buildAddJobUrl(projectId);
-        return getRestHelper().postJSon(url, json);
+        return getRestHelper().postJson(url, json);
     }
 
     /**
@@ -280,15 +430,45 @@ public class AsUser {
             }
         }
         json = json.replaceAll("__acceptedUris__", sb.toString());
-        getRestHelper().postJSon(getUrlBuilder().buildUpdateProjectWhiteListUrl(project.getProjectId()), json);
+        getRestHelper().postJson(getUrlBuilder().buildUpdateProjectWhiteListUrl(project.getProjectId()), json);
         return this;
 
     }
+    
+    public AsUser updateMetaDataForProject(TestProject project, Map<String, String> metaData) {
+        String json = IntegrationTestFileSupport.getTestfileSupport().loadTestFile("sechub-integrationtest-updatemetadata.json");
+        StringBuilder sb = new StringBuilder();
+        
+        Iterator<Entry<String, String>> iterator = metaData.entrySet().iterator();
+        iterator.forEachRemaining(entry -> {
+            sb.append("\\\"");
+            sb.append(entry.getKey());
+            sb.append("\\\":");
+            sb.append("\\\"");
+            sb.append(entry.getValue());
+            sb.append("\\\"");
+            if (iterator.hasNext()) {
+                sb.append(",");
+            }
+        });
+                
+        json = json.replaceAll("__metaData__", sb.toString());
+        getRestHelper().postJson(getUrlBuilder().buildUpdateProjectMetaData(project.getProjectId()), json);
+        return this;
+    }
 
+    public String getJobStatus(TestProject project, UUID jobUUID) {
+        return getJobStatus(project.getProjectId(), jobUUID);
+    }
+    
     public String getJobStatus(String projectId, UUID jobUUID) {
         return getRestHelper().getJSon(getUrlBuilder().buildGetJobStatusUrl(projectId, jobUUID.toString()));
     }
 
+    public String getJobReport(TestProject project, UUID jobUUID) {
+        return getJobReport(project.getProjectId(), jobUUID);
+    }
+    
     public String getJobReport(String projectId, UUID jobUUID) {
         long waitTimeInMillis = 1000;
         int count = 0;
@@ -344,7 +524,31 @@ public class AsUser {
      * @return uuid for created job
      */
     public UUID createWebScan(TestProject project) {
-        return createWebScan(project, null);
+        return createWebScan(project, null, true);
+    }
+    
+    /**
+     * Creates a webscan job for project (but job is not approved, so will not be
+     * started)
+     * 
+     * @param project
+     * @param useLongRunningButGreen
+     * @return uuid for created job
+     */
+    public UUID createWebScan(TestProject project, IntegrationTestMockMode runMode) {
+    	return createWebScan(project, runMode, true);
+    }
+    
+    /**
+     * Creates a webscan job for project (but job is not approved, so will not be
+     * started)
+     * 
+     * @param project
+     * @param checkExists
+     * @return uuid for created job
+     */
+    public UUID createWebScan(TestProject project, boolean checkExists) {
+    	return createWebScan(project, null, checkExists);
     }
 
     /**
@@ -353,10 +557,15 @@ public class AsUser {
      * 
      * @param project
      * @param useLongRunningButGreen
-     * @return
+     * @param checkExists
+     * @return uuid for created job
      */
-    public UUID createWebScan(TestProject project, IntegrationTestMockMode runMode) {
-        assertProject(project).doesExist();
+    public UUID createWebScan(TestProject project, IntegrationTestMockMode runMode, boolean checkExists) {
+        
+    	if (checkExists) {
+    		assertProject(project).doesExist();
+    	}       
+        
         if (runMode == null) {
             runMode = IntegrationTestMockMode.WEBSCAN__NETSPARKER_RESULT_GREEN__FAST;
         }
@@ -528,7 +737,7 @@ public class AsUser {
         String url = getUrlBuilder().buildGetFalsePositiveConfigurationOfProject(project.getProjectId());
         String json = getRestHelper().getJSon(url);
 
-        return create(project,json);
+        return create(project, json);
 
     }
 
@@ -573,14 +782,14 @@ public class AsUser {
         return uuid;
     }
 
-    public ProjectFalsePositivesDefinition create(TestProject project, String json) {
+    ProjectFalsePositivesDefinition create(TestProject project, String json) {
         ProjectFalsePositivesDefinition def = new ProjectFalsePositivesDefinition(project);
 
         try {
             JsonNode jsonNode = jsonTestSupport.fromJson(json);
             ArrayNode falsePositives = (ArrayNode) jsonNode.get("falsePositives");
-            if (falsePositives==null) {
-                fail("No false positives found in json:"+json);
+            if (falsePositives == null) {
+                fail("No false positives found in json:" + json);
             }
             for (JsonNode falsePositive : falsePositives) {
                 JsonNode jobData = falsePositive.get("jobData");
@@ -601,7 +810,7 @@ public class AsUser {
         }
         return def;
     }
-    
+
     public class ProjectFalsePositivesDefinition {
 
         private TestProject project;
@@ -615,16 +824,15 @@ public class AsUser {
         private List<JobData> jobData = new ArrayList<>();
         private WithSecHubClient withSechubClient;
         private IntegrationTestJSONLocation location;
-        
+
         public ProjectFalsePositivesDefinition(TestProject project) {
             this(project, null, null);
         }
 
-
         public ProjectFalsePositivesDefinition(TestProject project, WithSecHubClient withSechubClient, IntegrationTestJSONLocation location) {
             this.project = project;
             this.withSechubClient = withSechubClient;
-            this.location=location;
+            this.location = location;
         }
 
         public boolean isContaining(int findingId, UUID jobUUID) {
@@ -663,7 +871,7 @@ public class AsUser {
             File file = testfileSupport.createTempFile("mark_as_false_positive", ".json");
             testfileSupport.writeTextFile(file, json);
 
-            withSechubClient.markAsFalsePositive(project,location, file.getAbsolutePath());
+            withSechubClient.markAsFalsePositive(project, location, file.getAbsolutePath());
 
         }
 
@@ -706,6 +914,17 @@ public class AsUser {
             Iterator<JobData> it = jobData.iterator();
             while (it.hasNext()) {
                 JobData data = it.next();
+                /* handle strange failure output of github actions build (happens occasionally)*/
+                if (data==null) {
+                    String json = JSONConverter.get().toJSON(jobData);
+                    LOG.error("Job data list contains a job data object being null, see JSON:\n{}",json);
+                    fail("job data list contains entry being null!");
+                }
+                if (data.jobUUID==null) {
+                    String json = JSONConverter.get().toJSON(jobData);
+                    LOG.error("Job data list contains a job data object having no job uuid, see JSON:\n{}",json);
+                    fail("Job data list contains at least one job data without a jobuuid! see logs for output, finding id is :"+data.findingId);
+                }
                 if (data.comment == null) {
                     content += "{\"jobUUID\":\"" + data.jobUUID.toString() + "\",\"findingId\":" + data.findingId + "}";
                 } else {
@@ -733,4 +952,8 @@ public class AsUser {
             return this;
         }
     }
+
+   
+   
+
 }

@@ -12,13 +12,14 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.daimler.sechub.developertools.DeveloperToolsTestFileSupport;
+import com.daimler.sechub.test.junit4.ExpectedExceptionFactory;
 
 public class SimpleCSVImporterTest {
 
 	private SimpleCSVImporter importerToTest;
 
 	@Rule
-	public ExpectedException expected = ExpectedException.none();
+	public ExpectedException expected = ExpectedExceptionFactory.none();
 
 	@Before
 	public void before() {
@@ -31,7 +32,7 @@ public class SimpleCSVImporterTest {
 		File file = DeveloperToolsTestFileSupport.getTestfileSupport().createFileFromResourcePath("csv/example1-developer-admin-ui_mass-import_projects.csv");
 
 		/* execute */
-		List<CSVRow> importedRows = importerToTest.importCSVFile(file, 3, 1);
+		List<CSVRow> importedRows = importerToTest.importCSVFile(file, 4, 1,false);
 
 		/* test */
 		assertEquals(15, importedRows.size()); // 16 lines- 1 header, so line 2 inside CSV is here 0
@@ -47,6 +48,18 @@ public class SimpleCSVImporterTest {
 	}
 
 	@Test
+    public void example1_can_not_be_read_with_4_columns_when_insisting_all_columns_set() throws Exception {
+        /* test*/
+        expected.expect(IllegalStateException.class);
+
+        /* prepare */
+        File file = DeveloperToolsTestFileSupport.getTestfileSupport().createFileFromResourcePath("csv/example1-developer-admin-ui_mass-import_projects.csv");
+
+        /* execute */
+        importerToTest.importCSVFile(file, 4, 1,true);
+    }
+	
+	@Test
 	public void example1_can_not_be_read_with_2_columns() throws Exception {
 		/* test*/
 		expected.expect(IllegalStateException.class);
@@ -55,7 +68,7 @@ public class SimpleCSVImporterTest {
 		File file = DeveloperToolsTestFileSupport.getTestfileSupport().createFileFromResourcePath("csv/example1-developer-admin-ui_mass-import_projects.csv");
 
 		/* execute */
-		importerToTest.importCSVFile(file, 2, 1);
+		importerToTest.importCSVFile(file, 2, 1,false);
 	}
 
 	@Test
